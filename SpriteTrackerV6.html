@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Tracker</title>
+    <style>
+        /* Force all elements to calculate size including padding/borders */
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg-color: #0f172a; 
+            --panel-bg: #1e293b;
+            --primary-blue: #0000FF; 
+            --vibrant-green: #5CFF5C; 
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --mastered-gold: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Responsive Wrapper to sync width of Header and Video */
+        .content-wrapper {
+            width: 64%;
+            max-width: 800px;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* Mobile adjustment to shrink the video significantly */
+        @media (max-width: 600px) {
+            .content-wrapper {
+                width: 50%;
+                min-width: 200px;
+            }
+        }
+
+        /* Hamburger and Menu Styles */
+        .hamburger {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1002;
+            background: var(--panel-bg);
+            padding: 5px 15px;
+            border-radius: 6px;
+            border: 1px solid var(--primary-blue);
+        }
+
+        .backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+        }
+
+        .backdrop.open { display: block; }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--panel-bg);
+            padding: 25px;
+            border: 2px solid var(--primary-blue);
+            border-radius: 8px;
+            z-index: 2001;
+            flex-direction: column;
+            gap: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        }
+        
+        .modal.open { display: flex; }
+        .modal h3 { margin: 0; color: var(--text-main); }
+        .modal p { font-size: 0.9rem; color: var(--text-muted); margin: 0; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+        
+        .btn { background: none; border: 1px solid var(--primary-blue); color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+        .btn.primary { background: var(--primary-blue); font-weight: bold; }
+
+        .side-menu {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 280px;
+            height: 100%;
+            background: var(--panel-bg);
+            box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+            z-index: 1001;
+            transition: right 0.3s ease;
+            padding: 80px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .side-menu.open { right: 0; }
+
+        .menu-btn {
+            background: none;
+            border: 1px solid var(--primary-blue);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+        }
+
+        .sub-menu {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            padding-left: 15px;
+        }
+
+        .sub-menu.open { display: flex; }
+
+        .channel-header { margin-top: 15px; width: 100%; text-align: center; }
+        .channel-header a { 
+            display: inline-block; 
+            max-width: 100%;
+            color: #3b82f6; 
+            font-weight: bold; 
+            font-size: 0.8rem; 
+            text-decoration: none; 
+            border: 1px solid var(--primary-blue); 
+            padding: 5px 10px; 
+            border-radius: 6px; 
+            white-space: nowrap; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stream-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--primary-blue);
+        }
+
+        .stream-container iframe { width: 100%; height: 100%; display: block; }
+
+        h1 { color: #3b82f6; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; text-align: center; }
+
+        /* Controls container for spacing */
+        .controls { 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: center; 
+            gap: 15px; 
+            width: 100%; 
+            flex-wrap: wrap; 
+        }
+
+        #search-bar { 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            border: 1px solid var(--primary-blue); 
+            background: var(--panel-bg); 
+            color: white; 
+            width: 100%; 
+            max-width: 300px; 
+        }
+
+        /* Season Dropdown Styles */
+        .season-dropdown {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--primary-blue);
+            background: var(--panel-bg);
+            color: white;
+            font-family: inherit;
+            cursor: pointer;
+            width: 100%;
+            max-width: 250px;
+        }
+        
+        .season-dropdown option {
+            background: var(--panel-bg);
+            color: white;
+        }
+
+        .stats { display: flex; gap: 20px; margin-bottom: 30px; }
+        .stat-box { font-size: 1.1rem; font-weight: bold; padding: 8px 16px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        #collected-count { color: var(--vibrant-green); background: rgba(92, 255, 92, 0.1); }
+        #mastered-count { color: var(--mastered-gold); background: rgba(245, 158, 11, 0.1); }
+
+        .tracker-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; }
+        .family-card { background-color: var(--panel-bg); border-top: 4px solid var(--primary-blue); border-radius: 8px; padding: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }
+        
+        .family-card h2 { margin: 0; font-size: 1.1rem; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .family-card h2::after { content: '▼'; font-size: 0.8rem; margin-left: 10px; }
+        .family-card.open h2::after { content: '▲'; }
+
+        .family-card.open .card-content { display: flex; }
+        .card-content { display: none; flex-direction: column; }
+        .sprite-row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; padding: 5px 0; border-bottom: 1px solid #2d3748; }
+        .sprite-name { flex-grow: 1; font-size: 0.9rem; color: var(--text-muted); }
+        
+        input[type="checkbox"] { appearance: none; width: 20px; height: 20px; border: 2px solid var(--primary-blue); border-radius: 4px; cursor: pointer; position: relative; }
+        input[type="checkbox"].mastered-check { border-color: var(--mastered-gold); }
+        input[type="checkbox"]:checked { background-color: var(--primary-blue); }
+        input[type="checkbox"].mastered-check:checked { background-color: var(--mastered-gold); border-color: var(--mastered-gold); }
+        input[type="checkbox"]:checked::after { content: '✓'; position: absolute; color: white; top: -1px; left: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="hamburger" id="hamburger">☰</div>
+    <div class="backdrop" id="backdrop"></div>
+
+    <div class="side-menu" id="side-menu">
+        <button class="menu-btn" id="export-btn">Export Data</button>
+        <button class="menu-btn" id="import-btn">Import Data</button>
+        <button class="menu-btn" id="org-toggle">Organization Methods ▼</button>
+        <div class="sub-menu" id="sub-menu">
+            <button class="menu-btn" onclick="setGroup('family')">By Family</button>
+            <button class="menu-btn" onclick="setGroup('version')">By Version</button>
+            <button class="menu-btn" onclick="setGroup('mastered')">By Mastered</button>
+            
+            <button class="menu-btn" id="owned-toggle">Owned/Not Owned ▼</button>
+            <div class="sub-menu" id="owned-sub-menu">
+                <button class="menu-btn" onclick="setGroup('owned-rarity-high')">Rarity: High to Low</button>
+                <button class="menu-btn" onclick="setGroup('owned-rarity-low')">Rarity: Low to High</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legacy Import Modal -->
+    <div class="modal" id="legacy-modal">
+        <h3>Legacy Backup Detected</h3>
+        <p>This backup file is from an older version. Which season would you like to assign this progress to?</p>
+        <select id="legacy-season-selector" class="season-dropdown" style="max-width: 100%;"></select>
+        <div class="modal-actions">
+            <button class="btn" onclick="closeLegacyModal()">Cancel</button>
+            <button class="btn primary" onclick="confirmLegacyImport()">Import</button>
+        </div>
+    </div>
+
+    <div class="content-wrapper">
+        <div class="stream-container">
+            <iframe src="https://player.twitch.tv/?channel=silverfrailttv&parent=silverfrail.github.io" frameborder="0" allowfullscreen="true" scrolling="no"></iframe>
+        </div>
+        
+        <div class="channel-header">
+            <a href="https://www.twitch.tv/silverfrailttv" target="_blank">twitch.tv/silverfrailttv</a>
+        </div>
+    </div>
+
+    <h1 id="page-title">Fortnite Sprite Tracker</h1>
+
+    <div id="metadata-display" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;"></div>
+
+    <div class="controls">
+        <select id="season-selector" class="season-dropdown"></select>
+        <input type="text" id="search-bar" placeholder="Search sprites...">
+        <input type="file" id="fileInput" style="display:none" accept=".json">
+    </div>
+
+    <div class="stats">
+        <div class="stat-box" id="collected-count">Collected: 0 / 0</div>
+        <div class="stat-box" id="mastered-count">Mastered: 0 / 0</div>
+    </div>
+
+    <div class="tracker-container" id="tracker"></div>
+
+    <script>
+        let currentGroup = 'owned-rarity-high';
+        let totalSprites = 0;
+        let currentSaveKey = 'fortniteSpriteData'; 
+        let availableSeasons = []; // Stores the list of seasons fetched from GitHub
+        let pendingLegacyData = null; // Holds the old backup data while the modal is open
+
+        // --- GITHUB API & SINGLE-PAGE APP INIT ---
+        async function initializeApp() {
+            const seasonSelector = document.getElementById('season-selector');
+            let seasonFiles = [];
+
+            try {
+                const response = await fetch('https://api.github.com/repos/silverfrail/Fortnite/contents');
+                if (response.ok) {
+                    const files = await response.json();
+                    seasonFiles = files.filter(file => file.type === 'file' && /^ch\d+s\d+\.js$/i.test(file.name));
+                }
+            } catch (err) {
+                console.warn("GitHub API fetch failed or blocked:", err);
+            }
+
+            // Sort seasons from newest to oldest
+            seasonFiles.sort((a, b) => {
+                const matchA = a.name.match(/ch(\d+)s(\d+)/i);
+                const matchB = b.name.match(/ch(\d+)s(\d+)/i);
+                if (!matchA || !matchB) return 0;
+                
+                const chA = parseInt(matchA[1], 10);
+                const sA = parseInt(matchA[2], 10);
+                const chB = parseInt(matchB[1], 10);
+                const sB = parseInt(matchB[2], 10);
+
+                if (chA !== chB) return chB - chA;
+                return sB - sA;
+            });
+
+            // Save the list globally so our legacy import modal can use it later
+            availableSeasons = seasonFiles;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            let targetSeasonFile = urlParams.get('season');
+
+            if (!targetSeasonFile && seasonFiles.length > 0) {
+                targetSeasonFile = seasonFiles[0].name;
+            } else if (!targetSeasonFile) {
+                targetSeasonFile = 'sprites.js'; 
+            }
+
+            const baseName = targetSeasonFile.replace('.js', '');
+            currentSaveKey = 'fortniteSpriteData_' + baseName;
+
+            if (seasonFiles.length === 0) {
+                const option = document.createElement('option');
+                option.value = "";
+                option.disabled = true;
+                option.innerText = "DATABASE MISSING";
+                seasonSelector.appendChild(option);
+            } else {
+                seasonFiles.forEach(file => {
+                    const match = file.name.match(/ch(\d+)s(\d+)/i);
+                    if (!match) return;
+                    
+                    const chapter = parseInt(match[1], 10);
+                    const season = parseInt(match[2], 10);
+                    const displayName = `Chapter ${chapter} - Season ${season}`;
+
+                    const option = document.createElement('option');
+                    option.value = file.name;
+                    option.innerText = displayName;
+
+                    if (targetSeasonFile === file.name) {
+                        option.selected = true;
+                    }
+                    seasonSelector.appendChild(option);
+                });
+            }
+
+            seasonSelector.onchange = (e) => {
+                const targetFile = e.target.value;
+                if (targetFile) {
+                    window.location.href = "?season=" + targetFile;
+                }
+            };
+
+            loadSeasonData(targetSeasonFile);
+        }
+
+        function loadSeasonData(fileName) {
+            const scriptTag = document.createElement('script');
+            scriptTag.src = fileName;
+            
+            scriptTag.onload = () => {
+                // Populate metadata and evaluate update status
+                if (typeof trackerMetadata !== 'undefined') {
+                    const lastUp = trackerMetadata.lastUpdated || '';
+                    const nextUp = trackerMetadata.nextUpdate || '';
+                    
+                    let updateNeededHtml = '';
+                    if (nextUp) {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const nextUpdateDate = new Date(nextUp + 'T00:00:00');
+                        nextUpdateDate.setHours(0, 0, 0, 0);
+                        
+                        if (today > nextUpdateDate) {
+                            updateNeededHtml = ' &bull; <span style="color: #ef4444; font-weight: bold;">UPDATE NEEDED</span>';
+                        }
+                    }
+
+                    document.getElementById('metadata-display').innerHTML = `Last Updated: ${lastUp}<br>Next Update: ${nextUp}${updateNeededHtml}`;
+                }
+
+                if (typeof spriteData !== 'undefined') {
+                    totalSprites = spriteData.reduce((acc, f) => acc + f.sprites.length, 0);
+                    loadCorrectedProgress();
+                    renderTracker();
+                    updateStats();
+                } else {
+                    console.error("Failed to find spriteData inside " + fileName);
+                }
+            };
+            
+            scriptTag.onerror = () => {
+                document.getElementById('tracker').innerHTML = '<p style="text-align:center; color:#ef4444;">Failed to load data for this season.</p>';
+            };
+            
+            document.head.appendChild(scriptTag);
+        }
+
+        // DOM Elements
+        const hamburger = document.getElementById('hamburger');
+        const sideMenu = document.getElementById('side-menu');
+        const backdrop = document.getElementById('backdrop');
+        const orgToggle = document.getElementById('org-toggle');
+        const subMenu = document.getElementById('sub-menu');
+        const ownedToggle = document.getElementById('owned-toggle');
+        const ownedSubMenu = document.getElementById('owned-sub-menu');
+        const legacyModal = document.getElementById('legacy-modal');
+        const legacySeasonSelector = document.getElementById('legacy-season-selector');
+
+        const toggleMenu = () => {
+            sideMenu.classList.toggle('open');
+            backdrop.classList.toggle('open');
+            if (sideMenu.classList.contains('open')) {
+                // Ensure backdrop acts only for the side menu if opened
+                backdrop.style.zIndex = "1000";
+            }
+        };
+
+        hamburger.addEventListener('click', toggleMenu);
+        
+        // Close menu/modal when clicking backdrop
+        backdrop.addEventListener('click', () => {
+            if (sideMenu.classList.contains('open')) toggleMenu();
+            if (legacyModal.classList.contains('open')) closeLegacyModal();
+        });
+        
+        orgToggle.addEventListener('click', () => {
+            subMenu.classList.toggle('open');
+            if (!subMenu.classList.contains('open')) {
+                ownedSubMenu.classList.remove('open');
+            }
+        });
+
+        ownedToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            ownedSubMenu.classList.toggle('open');
+        });
+
+        const setGroup = (val) => {
+            currentGroup = val;
+            localStorage.setItem('fortniteSpriteLayout', val);
+            renderTracker();
+            toggleMenu();
+        };
+
+        const updateStats = () => {
+            let collected = 0, mastered = 0;
+            spriteData.forEach(f => f.sprites.forEach(s => { if(s.owned) collected++; if(s.mastered) mastered++; }));
+            document.getElementById('collected-count').innerText = `Collected: ${collected} / ${totalSprites}`;
+            document.getElementById('mastered-count').innerText = `Mastered: ${mastered} / ${totalSprites}`;
+        };
+
+        const saveProgress = () => {
+            const saveObj = {};
+            spriteData.forEach(f => {
+                f.sprites.forEach(s => { 
+                    saveObj[s.id] = { owned: s.owned, mastered: s.mastered };
+                });
+            });
+            localStorage.setItem(currentSaveKey, JSON.stringify(saveObj));
+            updateStats();
+        };
+
+        const loadCorrectedProgress = () => {
+            const savedData = localStorage.getItem(currentSaveKey);
+            if (savedData) {
+                const parsed = JSON.parse(savedData);
+                spriteData.forEach(f => f.sprites.forEach(s => { 
+                    if (parsed[s.id]) { 
+                        s.owned = parsed[s.id].owned; 
+                        s.mastered = parsed[s.id].mastered; 
+                    } 
+                }));
+            }
+            currentGroup = localStorage.getItem('fortniteSpriteLayout') || 'owned-rarity-high';
+        };
+
+        const applySearch = () => {
+            const query = document.getElementById('search-bar').value.toLowerCase();
+            document.querySelectorAll('.family-card').forEach(card => {
+                const rows = card.querySelectorAll('.sprite-row');
+                let hasVisible = false;
+                rows.forEach(row => {
+                    const match = row.querySelector('.sprite-name').innerText.toLowerCase().includes(query);
+                    row.style.display = match ? 'flex' : 'none';
+                    if (match) hasVisible = true;
+                });
+                card.style.display = (hasVisible || query === '') ? 'block' : 'none';
+                if (hasVisible && query !== '') card.classList.add('open');
+            });
+        };
+
+        document.getElementById('search-bar').addEventListener('input', applySearch);
+
+        const renderTracker = () => {
+            const trackerContainer = document.getElementById('tracker');
+            trackerContainer.innerHTML = '';
+            let renderGroups = [];
+
+            if (currentGroup === 'family') {
+                renderGroups = spriteData.map(f => ({ title: f.family, items: f.sprites.map(s => ({ sprite: s, family: f.family })) }));
+            } else if (currentGroup === 'version') {
+                const variantsList = (typeof trackerMetadata !== 'undefined' && trackerMetadata.variants) ? trackerMetadata.variants : [];
+                const vMap = { "Unique": [], "Base": [] };
+                
+                // Initialize map with all dynamic variants
+                variantsList.forEach(v => vMap[v] = []);
+                vMap["Other"] = [];
+
+                spriteData.forEach(f => f.sprites.forEach(s => { 
+                    if (f.family === "Unique") {
+                        vMap["Unique"].push({ sprite: s, family: f.family });
+                    } else {
+                        let matchedVariant = "Base";
+                        
+                        // Check if the sprite name begins with any of our dynamic variants (plus a space to ensure exact word matches)
+                        for (let i = 0; i < variantsList.length; i++) {
+                            if (s.name.startsWith(variantsList[i] + " ")) {
+                                matchedVariant = variantsList[i];
+                                break;
+                            }
+                        }
+                        
+                        if (vMap[matchedVariant]) {
+                            vMap[matchedVariant].push({ sprite: s, family: f.family });
+                        } else {
+                            vMap["Other"].push({ sprite: s, family: f.family });
+                        }
+                    }
+                }));
+
+                Object.keys(vMap).forEach(v => { 
+                    if (vMap[v].length > 0) renderGroups.push({ title: v + " Variants", items: vMap[v] }); 
+                });
+            } else if (currentGroup === 'mastered') {
+                const mMap = { "Mastered": [], "Not Mastered": [] };
+                spriteData.forEach(f => f.sprites.forEach(s => s.mastered ? mMap["Mastered"].push({ sprite: s, family: f.family }) : mMap["Not Mastered"].push({ sprite: s, family: f.family })));
+                renderGroups.push({ title: "Mastered", items: mMap["Mastered"] }, { title: "Not Mastered", items: mMap["Not Mastered"] });
+            } else if (currentGroup === 'owned-rarity-high' || currentGroup === 'owned-rarity-low') {
+                const ownedItems = [];
+                const notOwnedItems = [];
+
+                spriteData.forEach(f => f.sprites.forEach(s => {
+                    const item = { sprite: s, family: f.family };
+                    if (s.owned) ownedItems.push(item);
+                    else notOwnedItems.push(item);
+                }));
+
+                const sortRarestFirst = (a, b) => (parseFloat(a.sprite.rarityValue) || 0) - (parseFloat(b.sprite.rarityValue) || 0);
+                const sortCommonestFirst = (a, b) => (parseFloat(b.sprite.rarityValue) || 0) - (parseFloat(a.sprite.rarityValue) || 0);
+
+                if (currentGroup === 'owned-rarity-high') {
+                    ownedItems.sort(sortRarestFirst);
+                    notOwnedItems.sort(sortRarestFirst);
+                } else {
+                    ownedItems.sort(sortCommonestFirst);
+                    notOwnedItems.sort(sortCommonestFirst);
+                }
+                
+                renderGroups.push({ title: "Owned", items: ownedItems }, { title: "Not Owned", items: notOwnedItems });
+            }
+
+            renderGroups.forEach(group => {
+                if (group.items.length === 0 && group.title !== "No Owned Sprites") return;
+                
+                // Dynamically updates header text and colors
+                const updateHeader = () => {
+                    let o = group.items.filter(i => i.sprite.owned).length;
+                    let m = group.items.filter(i => i.sprite.mastered).length;
+                    let t = group.items.length;
+
+                    // Color logic for the dynamically updated header
+                    let oColor = (o === t) ? 'var(--vibrant-green)' : '#ef4444';
+                    let mColor = (m === t) ? 'var(--vibrant-green)' : '#ef4444';
+                    let tColor = 'var(--vibrant-green)'; // Always green
+
+                    let statsSpan = card.querySelector('.group-stats');
+                    if (statsSpan) {
+                        statsSpan.innerHTML = `(<span style="color:${oColor}">${o}</span>/<span style="color:${mColor}">${m}</span>/<span style="color:${tColor}">${t}</span>)`;
+                    }
+                };
+
+                let initialO = group.items.filter(i => i.sprite.owned).length;
+                let initialM = group.items.filter(i => i.sprite.mastered).length;
+                let t = group.items.length;
+
+                // Color logic for the initial render
+                let initialOColor = (initialO === t) ? 'var(--vibrant-green)' : '#ef4444';
+                let initialMColor = (initialM === t) ? 'var(--vibrant-green)' : '#ef4444';
+                let initialTColor = 'var(--vibrant-green)';
+
+                const card = document.createElement('div');
+                card.className = 'family-card';
+                card.innerHTML = `<h2><span>${group.title} <span class="group-stats" style="font-size: 0.9rem; color: var(--text-muted);">(<span style="color:${initialOColor}">${initialO}</span>/<span style="color:${initialMColor}">${initialM}</span>/<span style="color:${initialTColor}">${t}</span>)</span></span></h2><div class="card-content"></div>`;
+                
+                if (group.items.length > 0) {
+                    card.querySelector('h2').addEventListener('click', () => card.classList.toggle('open'));
+                } else {
+                    card.querySelector('h2').style.cursor = 'default';
+                    card.querySelector('h2').style.color = '#94a3b8';
+                }
+
+                const container = card.querySelector('.card-content');
+
+                group.items.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'sprite-row';
+                    row.innerHTML = `<span class="sprite-name">${item.sprite.name} <small style="color:#64748b">(${item.sprite.rarityValue}%)</small></span>
+                                     <div style="display:flex; gap:10px;">
+                                        <label class="checkbox-wrapper" style="display:flex; flex-direction:column; align-items:center;">
+                                            <input type="checkbox" class="owned-check" ${item.sprite.owned ? 'checked' : ''}>
+                                            <span style="font-size:0.65rem; color:#94a3b8;">Owned</span>
+                                        </label>
+                                        <label class="checkbox-wrapper" style="display:flex; flex-direction:column; align-items:center;">
+                                            <input type="checkbox" class="mastered-check" ${item.sprite.mastered ? 'checked' : ''}>
+                                            <span style="font-size:0.65rem; color:#94a3b8;">Mastered</span>
+                                        </label>
+                                     </div>`;
+                    
+                    row.querySelector('.owned-check').addEventListener('change', (e) => { 
+                        item.sprite.owned = e.target.checked; 
+                        saveProgress(); 
+                        updateHeader();
+                        if (currentGroup.includes('rarity')) renderTracker(); 
+                    });
+                    
+                    row.querySelector('.mastered-check').addEventListener('change', (e) => { 
+                        item.sprite.mastered = e.target.checked; 
+                        saveProgress(); 
+                        updateHeader();
+                    });
+                    
+                    container.appendChild(row);
+                });
+                trackerContainer.appendChild(card);
+            });
+            applySearch();
+        };
+
+        // Export Data
+        document.getElementById('export-btn').addEventListener('click', () => {
+            const allSeasonData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('fortniteSpriteData_')) {
+                    allSeasonData[key] = JSON.parse(localStorage.getItem(key));
+                }
+            }
+            const blob = new Blob([JSON.stringify(allSeasonData)], { type: 'application/json' });
+            const a = document.createElement('a'); 
+            a.href = URL.createObjectURL(blob); 
+            a.download = 'sprite-data-backup.json'; 
+            a.click();
+        });
+
+        // Import Data Setup
+        document.getElementById('import-btn').addEventListener('click', () => {
+            // Close the side menu if it's open before opening the file dialog
+            if (sideMenu.classList.contains('open')) toggleMenu();
+            document.getElementById('fileInput').click();
+        });
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (ev) => { 
+                try {
+                    const importedData = JSON.parse(ev.target.result);
+                    
+                    // Check if the backup has the new season labels
+                    const keys = Object.keys(importedData);
+                    const isNewFormat = keys.some(key => key.startsWith('fortniteSpriteData_'));
+
+                    if (isNewFormat) {
+                        // It's a new backup: place items in their exact season boxes
+                        keys.forEach(key => {
+                            if (key.startsWith('fortniteSpriteData_')) {
+                                localStorage.setItem(key, JSON.stringify(importedData[key]));
+                            }
+                        });
+                        location.reload(); 
+                    } else {
+                        // It's an old legacy backup without season labels: prompt the user
+                        pendingLegacyData = importedData;
+                        showLegacyModal();
+                    }
+                } catch(err) {
+                    alert("Import failed. Make sure you are using a valid backup file.");
+                }
+                
+                // Clear the input value so they can upload the same file again if they cancel
+                document.getElementById('fileInput').value = '';
+            };
+            reader.readAsText(file);
+        });
+
+        // --- LEGACY MODAL LOGIC ---
+        function showLegacyModal() {
+            legacySeasonSelector.innerHTML = ''; // clear out old options
+            
+            // Populate the modal dropdown with available seasons
+            availableSeasons.forEach(file => {
+                const match = file.name.match(/ch(\d+)s(\d+)/i);
+                if (!match) return;
+                
+                const chapter = parseInt(match[1], 10);
+                const season = parseInt(match[2], 10);
+                
+                const option = document.createElement('option');
+                option.value = file.name; // e.g. ch4s1.js
+                option.innerText = `Chapter ${chapter} - Season ${season}`;
+                
+                // Pre-select the season they are currently looking at on the page
+                if ('fortniteSpriteData_' + file.name.replace('.js', '') === currentSaveKey) {
+                    option.selected = true;
+                }
+                legacySeasonSelector.appendChild(option);
+            });
+
+            // If for some reason we have no seasons, give a fallback option
+            if(availableSeasons.length === 0) {
+                const option = document.createElement('option');
+                option.value = "sprites.js";
+                option.innerText = "Default Base";
+                legacySeasonSelector.appendChild(option);
+            }
+
+            backdrop.classList.add('open');
+            backdrop.style.zIndex = "2000"; // Raise backdrop above side menu
+            legacyModal.classList.add('open');
+        }
+
+        function closeLegacyModal() {
+            legacyModal.classList.remove('open');
+            backdrop.classList.remove('open');
+            pendingLegacyData = null; // Clear the temporary holding cell
+        }
+
+        function confirmLegacyImport() {
+            if (!pendingLegacyData) return;
+            
+            // Get the file name they chose (like 'ch4s1.js')
+            const selectedFile = legacySeasonSelector.value;
+            const targetKey = 'fortniteSpriteData_' + selectedFile.replace('.js', '');
+            
+            // Save the old data directly into that specific season's box
+            localStorage.setItem(targetKey, JSON.stringify(pendingLegacyData));
+            
+            closeLegacyModal();
+            
+            // Automatically switch the user to the season they just imported into
+            window.location.href = "?season=" + selectedFile;
+        }
+
+        // Run on load
+        initializeApp();
+    </script>
+</body>
+</html>
